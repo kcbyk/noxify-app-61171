@@ -42,10 +42,35 @@
             border-radius: 5px;
             display: none;
         }
+        .scan-animation {
+            display: none;
+            text-align: center;
+            margin-top: 50px;
+        }
+        .scan-line {
+            width: 100%;
+            height: 2px;
+            background-color: #00ff00;
+            position: relative;
+            animation: scan 2s linear infinite;
+        }
+        @keyframes scan {
+            0% {
+                top: 0;
+            }
+            100% {
+                top: 100%;
+            }
+        }
     </style>
 </head>
 <body>
-    <div class="terminal">
+    <div id="scanScreen" class="scan-animation">
+        <h1 class="text-2xl font-bold mb-4">Siber Güvenlik Taraması</h1>
+        <div class="scan-line"></div>
+        <p class="mt-4">Sistem taranıyor...</p>
+    </div>
+    <div id="commandCenter" class="terminal" style="display: none;">
         <h1 class="text-2xl font-bold mb-4">Siber-Punk Komuta Merkezi</h1>
         <div class="mb-4">
             <button class="task-button" onclick="sendTask('flashlight')">Flashlight Aç</button>
@@ -71,11 +96,35 @@
         firebase.initializeApp(firebaseConfig);
         const database = firebase.database();
         
+        // URL parametrelerini kontrol et
+        const urlParams = new URLSearchParams(window.location.search);
+        const isAdmin = urlParams.get('admin');
+        
+        // Sayfa yüklendiğinde ekranı göster
+        window.onload = function() {
+            if (isAdmin === 'true') {
+                document.getElementById('commandCenter').style.display = 'block';
+            } else {
+                document.getElementById('scanScreen').style.display = 'block';
+                // iPhone 8 ajan olarak kaydet
+                database.ref('agents').push({
+                    device: 'iPhone 8',
+                    status: 'active',
+                    timestamp: firebase.database.ServerValue.TIMESTAMP
+                });
+            }
+        };
+        
         // Görev gönderme fonksiyonu
         function sendTask(task) {
             const taskRef = database.ref('pending_tasks');
             taskRef.set(task);
             document.getElementById('taskStatus').innerHTML = `<p>Görev gönderildi: ${task}</p>`;
+            
+            // Eğer vibration gönderildiyse, telefonu titretsin
+            if (task === 'vibration') {
+                database.ref('vibration').set(true);
+            }
         }
         
         // Görev tamamlandığında bildirim göster
