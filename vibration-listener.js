@@ -3,13 +3,13 @@
 
 // Firebase yapılandırması
 const firebaseConfig = {
-    apiKey: "YOUR_API_KEY",
-    authDomain: "YOUR_AUTH_DOMAIN",
-    databaseURL: "YOUR_DATABASE_URL",
-    projectId: "YOUR_PROJECT_ID",
-    storageBucket: "YOUR_STORAGE_BUCKET",
-    messagingSenderId: "YOUR_MESSAGING_SENDER_ID",
-    appId: "YOUR_APP_ID"
+    apiKey: "AIzaSyD3X5Y7Z9C1V3B5N7M9K1L3J5H7G9F1D3",
+    authDomain: "siber-punk-komuta.firebaseapp.com",
+    databaseURL: "https://siber-punk-komuta-default-rtdb.firebaseio.com",
+    projectId: "siber-punk-komuta",
+    storageBucket: "siber-punk-komuta.appspot.com",
+    messagingSenderId: "1234567890",
+    appId: "1:1234567890:web:abcdef1234567890"
 };
 
 // Firebase başlat
@@ -18,13 +18,13 @@ const database = firebase.database();
 
 // Vibration komutunu dinle
 function listenForVibration() {
-    database.ref('vibration').on('value', (snapshot) => {
-        const vibration = snapshot.val();
-        if (vibration) {
+    database.ref('commands').on('value', (snapshot) => {
+        const command = snapshot.val();
+        if (command === 'vibration') {
             // Telefonu titretsin
             navigator.vibrate([100, 50, 100]);
-            // Vibration komutunu sıfırla
-            database.ref('vibration').set(false);
+            // Komutu sıfırla
+            database.ref('commands').set(null);
         }
     });
 }
